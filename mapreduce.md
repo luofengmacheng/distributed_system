@@ -49,9 +49,11 @@ func main() {
 
 这里面包含三个函数：main、Map、Reduce。
 根据main函数上面的解释知道，有三种方式可以运行main函数：
+
 1 顺序执行(go run wc.go master x.txt sequential) 也就是在一台机器上执行，不采用分布式
 2 Master(go run wc.go master x.txt localhost:7777) 以Master身份执行
 3 Worker(go run wc.go worker localhost:7777 localhost:7778 &)以Worker身份执行
+
 Map和Reduce也就是我们的实验1的第一部分。
 因此，我们首先可以看看如何采用顺序执行：
 ``` GO
