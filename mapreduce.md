@@ -81,10 +81,15 @@ func RunSingle(nMap int, nReduce int, file string,
 ```
 
 这个函数的代码很短，通过这个函数就知道了MapReduce的三个操作：map、reduce、merge。
+
 1 InitMapReduce，对mr进行初始化，mr是一个结构体指针，其中包含了一些重要信息。
+
 2 Split，对文件按照map的个数进行分割，每个map操作对应一个文件。
+
 3 DoMap，对Split的每个文件进行map操作。
+
 4 DoReduce，对map的结果文件进行reduce操作。
+
 5 Merge，对reduce的结果进行合并。
 
 ### 2.1 Split文件分割
