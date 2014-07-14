@@ -2,11 +2,13 @@
 
 [《Distributed Computer Systems Engineering》](http://css.csail.mit.edu/6.824/2014/)是MIT的一门关于分布式系统开发的课程，这门课程讲到了分布式系统的许多方面。而且，这门课会每年更新，与时俱进，比如，之前的课程用的是C语言，现在用的是GO语言，不像国内的课程，可能十几年，甚至几十年还是原来那样。国内的课程很多都停留在理论阶段，让学生没有实践的机会，但是，这门课给了几个实验，让学生们在实验的过程中能够快速地学习。
 
-MapReduce是Google抽象出来的一个分布式计算模型，虽然Google已经宣称不再使用MapReduce，但是，MapReduce在大规模分布式计算带来了很深远的影响。MapReduce并不是一个系统，而是Google从他们所处理的问题中抽象出来的一个模型，这个模型很像一个递归的思想：
-将问题分为多个小问题，对这些小文件求解，然后将这些小问题的解进行合并，就得到了最终的解。
-不熟悉MapReduce的可以看看Google的这篇论文：
+## 1 介绍
 
-实验1给出了一个简单的MapReduce的实现。
+MapReduce是Google抽象出来的一个分布式计算模型，虽然Google已经宣称不再使用MapReduce，但是，MapReduce在大规模分布式计算带来了很深远的影响。MapReduce并不是一个系统，而是Google从他们所处理的问题中抽象出来的一个模型，这个模型很像一个递归的思想：**将问题分为多个小问题，对这些小文件求解，然后将这些小问题的解进行合并，就得到了最终的解**。
+
+## 2 MapReduce的简单实现
+
+[实验1:MapReduce](http://css.csail.mit.edu/6.824/2014/labs/lab-1.html)给出了一个简单的MapReduce的实现，第一个任务要我们实现Map和Reduce函数来求得一个文件中每个单词出现的次数。
 
 下面从代码的角度简单解释下：
 
@@ -81,14 +83,14 @@ func RunSingle(nMap int, nReduce int, file string,
 4 DoReduce，对map的结果文件进行reduce操作。
 5 Merge，对reduce的结果进行合并。
 
-## 1 Split文件分割
+### 2.1 Split文件分割
 
 map处理的是一个文件，为了让每个map处理一个文件，先对初始给定的一个文件按照map的个数进行分割。
 
 假设给定的文件是a.txt，文件大小为1000个字节，map的个数是3。
 那么，Split会将这个文件分成3个文件，依次为mrtmp.a.txt-0，大小为334个字节；mrtmp.a.txt-1，大小为334个字节；mrtmp.a.txt-2，大小为332字节。
 
-## 2 DoMap
+### 2.2 DoMap
 
 对Split的结果文件执行map操作，每个分割的文件对应一个map操作。
 
@@ -134,7 +136,7 @@ func DoMap(JobNumber int, fileName string,
 }
 ```
 
-## 3 DoReduce
+### 2.3 DoReduce
 
 ``` GO
 func DoReduce(job int, fileName string, nmap int,
@@ -181,7 +183,7 @@ func DoReduce(job int, fileName string, nmap int,
 }
 ```
 
-## 4 Merge
+### 2.4 Merge
 
 ``` GO
 func (mr *MapReduce) Merge() {
