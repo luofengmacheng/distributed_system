@@ -1,4 +1,4 @@
-# MapReduce
+# 实现Map和Reduce统计文件中单词出现的次数
 
 [《Distributed Computer Systems Engineering》](http://css.csail.mit.edu/6.824/2014/)是MIT的一门关于分布式系统开发的课程，这门课程讲到了分布式系统的许多方面。而且，这门课会每年更新，与时俱进，比如，之前的课程用的是C语言，现在用的是GO语言，不像国内的课程，可能十几年，甚至几十年还是原来那样。国内的课程很多都停留在理论阶段，让学生没有实践的机会，但是，这门课给了几个实验，让学生们在实验的过程中能够快速地学习。
 
@@ -55,11 +55,12 @@ func main() {
 ```
 
 这里面包含三个函数：main、Map、Reduce。
+
 根据main函数上面的解释知道，有三种方式可以运行main函数：
 
 * 顺序执行(go run wc.go master x.txt sequential) 也就是在一台机器上执行，不采用分布式
 * Master(go run wc.go master x.txt localhost:7777) 以Master身份执行
-* Worker(go run wc.go worker localhost:7777 localhost:7778 &)以Worker身份执行
+* Worker(go run wc.go worker localhost:7777 localhost:7778 &) 以Worker身份执行
 
 Map和Reduce也就是我们的实验1的第一部分。
 因此，我们首先可以看看如何采用顺序执行：
@@ -278,70 +279,4 @@ func Reduce(key string, values *list.List) string {
 }
 ```
 
-注意：***上面的代码得到的结果与正确结果有一定偏差，应该是Map函数的问题，不过基本思路应该就是这样，可能有些特殊情况没有考虑***。
-
-## 3 实验1任务2：分发任务
-
-实验1任务2主要是完成分布式环境下Master将Map任务和Reduce任务分发给Worker。
-
-完成实验1任务2需要：
-* 熟悉GO语言中的并发编程
-* 熟悉GO语言中的网络编程
-
-首先，需要了解程序是如何分布式运行的，以及Master和Worker如何通信。
-
-由前面可以知道main函数可以以三种方式运行，后两种就是将这个程序分别以Master身份和Worker身份运行。
-
-``` GO
-// Master (e.g., go run wc.go master x.txt localhost:7777)
-// 以Master身份运行，且最后一个参数是本Master地址
-// 因此os.Args[2] = "x.txt"，os.Args[3] = "localhost:7777"
-mr := mapreduce.MakeMapReduce(5, 3, os.Args[2], os.Args[3])
-
-// Worker (e.g., go run wc.go worker localhost:7777 localhost:7778 &)
-// 以Worder身份运行，且倒数第二个参数是Master地址，最后一个参数是本Worker地址
-// 因此os.Args[2] = "localhost:777"，os.Args[3] = "localhost:7778"
-mapreduce.RunWorker(os.Args[2], os.Args[3], Map, Reduce, 100)
-```
-
-### 3.1 Master的运行流程
-
-```
-MakeMapReduce
-	InitMapReduce 创建并初始化一个MapReduce结构体
-	StartRegisterationServer
-	go mr.Run()
-```
-
-下面主要来看看StartRegisterationServer和mr.Run()：
-
-``` GO
-func (mr *MapReduce) StartRegistrationServer() {
-  rpcs := rpc.NewServer()
-  rpcs.Register(mr)
-  os.Remove(mr.MasterAddress)   // only needed for "unix"
-  l, e := net.Listen("unix", mr.MasterAddress)
-  if e != nil {
-    log.Fatal("RegstrationServer", mr.MasterAddress, " error: ", e)
-  }
-  mr.l = l
-
-  // now that we are listening on the master address, can fork off
-  // accepting connections to another thread.
-  go func() {
-    for mr.alive {
-      conn, err := mr.l.Accept()
-      if err == nil {
-        go func() {
-          rpcs.ServeConn(conn)
-          conn.Close()
-        }()
-      } else {
-        DPrintf("RegistrationServer: accept error", err)
-        break
-      }
-    }
-    DPrintf("RegistrationServer: done\n")
-  }()
-}
-```
+注意：**上面的代码得到的结果与正确结果有一定偏差，应该是Map函数的问题，不过基本思路应该就是这样，可能有些特殊情况没有考虑**。

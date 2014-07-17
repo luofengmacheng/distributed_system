@@ -1,4 +1,5 @@
-distributed_system
-==================
+## 分布式计算机系统工程实践
 
-1 [MapReduce](https://github.com/luofengmacheng/distributed_system/blob/master/mapreduce.md)
+1 [实现Map和Reduce统计文件中单词出现的次数](https://github.com/luofengmacheng/distributed_system/blob/master/mapreduce1.md)
+
+2 [分发Map和Reduce任务](https://github.com/luofengmacheng/distributed_system/blob/master/mapreduce2.md)
