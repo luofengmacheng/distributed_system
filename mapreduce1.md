@@ -6,11 +6,18 @@
 
 MapReduce是Google抽象出来的一个分布式计算模型，虽然Google已经宣称不再使用MapReduce，但是，MapReduce在大规模分布式计算带来了很深远的影响。MapReduce并不是一个系统，而是Google从他们所处理的问题中抽象出来的一个模型，这个模型很像一个递归的思想：**将问题分为多个小问题，对这些小文件求解，然后将这些小问题的解进行合并，就得到了最终的解**。
 
-## 2 MapReduce的简单实现
+[实验1:MapReduce](http://css.csail.mit.edu/6.824/2014/labs/lab-1.html)给出了一个简单的MapReduce的实现。
 
-[实验1:MapReduce](http://css.csail.mit.edu/6.824/2014/labs/lab-1.html)给出了一个简单的MapReduce的实现，第一个任务要我们实现Map和Reduce函数来求得一个文件中每个单词出现的次数。
+## 2 实验1任务1：实现Map和Reduce
 
-下面从代码的角度简单解释下：
+任务1：实现Map和Reduce函数来求得一个文件中每个单词出现的次数。
+
+完成实验1任务1需要：
+* 熟悉GO语言基础知识
+* 阅读MapReduce论文
+
+
+下面从代码的角度简单解释下程序是如何执行的：
 
 首先是src/main/wc.go，这就是使用MapReduce计算单词个数的主函数所在的文件。
 ``` GO
@@ -50,11 +57,9 @@ func main() {
 这里面包含三个函数：main、Map、Reduce。
 根据main函数上面的解释知道，有三种方式可以运行main函数：
 
-1 顺序执行(go run wc.go master x.txt sequential) 也就是在一台机器上执行，不采用分布式
-
-2 Master(go run wc.go master x.txt localhost:7777) 以Master身份执行
-
-3 Worker(go run wc.go worker localhost:7777 localhost:7778 &)以Worker身份执行
+* 顺序执行(go run wc.go master x.txt sequential) 也就是在一台机器上执行，不采用分布式
+* Master(go run wc.go master x.txt localhost:7777) 以Master身份执行
+* Worker(go run wc.go worker localhost:7777 localhost:7778 &)以Worker身份执行
 
 Map和Reduce也就是我们的实验1的第一部分。
 因此，我们首先可以看看如何采用顺序执行：
@@ -82,15 +87,11 @@ func RunSingle(nMap int, nReduce int, file string,
 
 这个函数的代码很短，通过这个函数就知道了MapReduce的三个操作：map、reduce、merge。
 
-1 InitMapReduce，对mr进行初始化，mr是一个结构体指针，其中包含了一些重要信息。
-
-2 Split，对文件按照map的个数进行分割，每个map操作对应一个文件。
-
-3 DoMap，对Split的每个文件进行map操作。
-
-4 DoReduce，对map的结果文件进行reduce操作。
-
-5 Merge，对reduce的结果进行合并。
+* InitMapReduce，对mr进行初始化，mr是一个结构体指针，其中包含了一些重要信息。
+* Split，对文件按照map的个数进行分割，每个map操作对应一个文件。
+* DoMap，对Split的每个文件进行map操作。
+* DoReduce，对map的结果文件进行reduce操作。
+* Merge，对reduce的结果进行合并。
 
 ### 2.1 Split文件分割
 
@@ -239,7 +240,7 @@ func (mr *MapReduce) Merge() {
 ![]()
 
 通过上面的解释可以知道用户的Map和Reduce要干什么：
-* func Map(value string) *list.List 参数的类型是string，它包含了这次处理的文本的内容，返回值的类型是*list.List，它是所有的单词的键值对。因此，Map就是获得alue中的单词，然后将{单词，"1"}存储到一个链表中。
+* func Map(value string) *list.List 参数的类型是string，它包含了这次处理的文本的内容，返回值的类型是*list.List，它是所有的单词的键值对。因此，Map就是获得value中的单词，然后将{单词，"1"}存储到一个链表中。
 * func Reduce(key string, values *list.List) string 参数有两个，一个是key，它表示这次reduce对应的单词，values是一个链表，它包含了key出现的次数的一个链表，返回值的类型是string，它就是key出现的个数。因此，Reduce就是对values这个链表中的值进行累加。
 
 于是有：
@@ -254,7 +255,9 @@ func GetWords(ch rune) bool {
 
 func Map(value string) *list.List {
   lst := list.New()
-  words := strings.FieldsFunc(value, GetWords) // 用FieldsFunc对value进行分割，得到的就是一个单词的切片，它的第一个参数就是要分割的字符串，第二个参数就是分割的条件
+  // 用FieldsFunc对value进行分割，得到的就是一个单词的切片
+  // 它的第一个参数就是要分割的字符串，第二个参数就是分割的条件
+  words := strings.FieldsFunc(value, GetWords) 
 
   for _, word := range words {
     lst.PushBack(mapreduce.KeyValue{string(word), "1"})
@@ -272,5 +275,73 @@ func Reduce(key string, values *list.List) string {
   }
 
   return strconv.Itoa(cnt)
+}
+```
+
+注意：***上面的代码得到的结果与正确结果有一定偏差，应该是Map函数的问题，不过基本思路应该就是这样，可能有些特殊情况没有考虑***。
+
+## 3 实验1任务2：分发任务
+
+实验1任务2主要是完成分布式环境下Master将Map任务和Reduce任务分发给Worker。
+
+完成实验1任务2需要：
+* 熟悉GO语言中的并发编程
+* 熟悉GO语言中的网络编程
+
+首先，需要了解程序是如何分布式运行的，以及Master和Worker如何通信。
+
+由前面可以知道main函数可以以三种方式运行，后两种就是将这个程序分别以Master身份和Worker身份运行。
+
+``` GO
+// Master (e.g., go run wc.go master x.txt localhost:7777)
+// 以Master身份运行，且最后一个参数是本Master地址
+// 因此os.Args[2] = "x.txt"，os.Args[3] = "localhost:7777"
+mr := mapreduce.MakeMapReduce(5, 3, os.Args[2], os.Args[3])
+
+// Worker (e.g., go run wc.go worker localhost:7777 localhost:7778 &)
+// 以Worder身份运行，且倒数第二个参数是Master地址，最后一个参数是本Worker地址
+// 因此os.Args[2] = "localhost:777"，os.Args[3] = "localhost:7778"
+mapreduce.RunWorker(os.Args[2], os.Args[3], Map, Reduce, 100)
+```
+
+### 3.1 Master的运行流程
+
+```
+MakeMapReduce
+	InitMapReduce 创建并初始化一个MapReduce结构体
+	StartRegisterationServer
+	go mr.Run()
+```
+
+下面主要来看看StartRegisterationServer和mr.Run()：
+
+``` GO
+func (mr *MapReduce) StartRegistrationServer() {
+  rpcs := rpc.NewServer()
+  rpcs.Register(mr)
+  os.Remove(mr.MasterAddress)   // only needed for "unix"
+  l, e := net.Listen("unix", mr.MasterAddress)
+  if e != nil {
+    log.Fatal("RegstrationServer", mr.MasterAddress, " error: ", e)
+  }
+  mr.l = l
+
+  // now that we are listening on the master address, can fork off
+  // accepting connections to another thread.
+  go func() {
+    for mr.alive {
+      conn, err := mr.l.Accept()
+      if err == nil {
+        go func() {
+          rpcs.ServeConn(conn)
+          conn.Close()
+        }()
+      } else {
+        DPrintf("RegistrationServer: accept error", err)
+        break
+      }
+    }
+    DPrintf("RegistrationServer: done\n")
+  }()
 }
 ```
