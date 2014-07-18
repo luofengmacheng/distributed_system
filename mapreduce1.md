@@ -238,6 +238,7 @@ func (mr *MapReduce) Merge() {
 ```
 
 下面就是上面四个操作的结构图：
+
 ![](https://github.com/luofengmacheng/distributed_system/blob/master/pic/mapreduce1.jpg)
 
 图中，除了最上面的文件a.txt是原文件，其它的都是临时文件，都是以mrtmp.开头，为了简单，没有加上mrtmp.。
