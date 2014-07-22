@@ -208,7 +208,7 @@ func (mr *MapReduce) RunMaster() *list.List {
   workId := 0 // 记录当前分配的工作ID
   comJob := 0 // 记录已经完成的工作数目
   for {
-    if workId >= mr.nMap { // 如果已经分发了所有的工作则推出循环
+    if workId >= mr.nMap { // 如果已经分发了所有的工作则退出循环
       log.Printf("send %d jobs to workers", workId)
       break
     }
@@ -229,11 +229,11 @@ func (mr *MapReduce) RunMaster() *list.List {
   }
 
   for {
-    if comJob >= mr.nMap { // 如果所有的工作都完成了，就推出循环，这个循环保证所有的Map任务完成
+    if comJob >= mr.nMap { // 如果所有的工作都完成了，就退出循环，这个循环保证所有的Map任务完成
       break
     }
 
-    // 这个循环用于等待所有的工作 完成，可是不知道为什么，在不加下一行这个休眠的函数时，最后两个工作总是得不到执行
+    // 这个循环用于等待所有的工作完成，可是不知道为什么，在不加下一行这个休眠的函数时，最后两个工作总是得不到执行
     // assignJob函数获取了工作，但是没有执行。在下面加个time.Sleep()就行了，为什么呢？
     time.Sleep(time.Duration(1) * time.Second)
   }
@@ -278,6 +278,8 @@ func (mr *MapReduce) RunMaster() *list.List {
   return mr.KillWorkers()
 }
 ```
+
+注意：代码中，在等待所有工作完成时，用到了time.Sleep()使进程休眠1s，如果不加这句，最后两个工作总会卡在那儿而无法执行，不知道原因。
 
 ### 4 测试
 
