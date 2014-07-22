@@ -131,7 +131,160 @@ func RunWorker(MasterAddress string, me string,
 
 其中主要的函数就是Register，这个函数告知Master自己的存在，这个函数通过RPC调用了Master的Register。
 
-### 3 实现
+## 3 实现
 
-Master：启动Master后，当任务还没有完成时，如果有Worker还没有分配任务，那么就将这个任务交给该Worker。
+基本想法是：
+
+Master：启动Master后，当任务还没有完成时，获得一个没有执行任务的Worker，将任务分配给这个Worker，然后继续分配下一个任务。还要使用一个变量保存已经完成的任务数目，当完成了所有的任务，就可以进行接下来的工作。
+
 Worker：等待任务，如果有任务到达，处理任务，然后返回结果。
+
+下面简述下对代码的修改：
+
+对代码做的修改：
+
+1 在InitMapReduce中添加对Workers的创建
+
+``` GO
+mr.Workers = make(map[string]*WorkerInfo)
+```
+
+2 在WorkerInfo中添加了inUse bool表明这个工作者是否正在执行工作
+
+3 修改RunMaster
+
+``` GO
+// 给worker分配了一个工作，工作的类型是job，工作号码是是JobNum，lock和comJob用于对完成的工作数目进行更新
+func (mr *MapReduce) assignJob(worker *WorkerInfo, job JobType, JobNum int, lock *sync.Mutex, comJob *int) {
+  var numOtherPhase int
+  if job == Map {
+    numOtherPhase = mr.nReduce
+  } else if job == Reduce {
+    numOtherPhase = mr.nMap
+  }
+
+  jobargs := &DoJobArgs{mr.file, job, JobNum, numOtherPhase}
+
+  var jobreply DoJobReply
+  ok := call(worker.address, "Worker.DoJob", jobargs, &jobreply) // 远程调用worker的Worker.DoJob
+  if ok == false {
+    fmt.Printf("call Worker.DoJob %d error", job)
+  } else {
+    worker.inUse = false;
+    lock.Lock()
+    *comJob++
+    lock.Unlock()
+  }
+}
+
+func (mr *MapReduce) RunMaster() *list.List {
+  log.Printf("RunMaster start")
+  // Your code here
+  // 获得Worker的注册，从而确定Worker的存在
+  // 并在Master保存它的相关信息
+  workerAddr := <- mr.registerChannel
+  _, ok := mr.Workers[workerAddr]
+  if !ok {
+    wkinfo := new(WorkerInfo)
+    wkinfo.address = workerAddr
+    wkinfo.inUse = false
+    mr.Workers[workerAddr] = wkinfo
+  }
+
+  workerAddr = <- mr.registerChannel
+  _, ok = mr.Workers[workerAddr]
+  if !ok {
+    wkinfo := new(WorkerInfo)
+    wkinfo.address = workerAddr
+    wkinfo.inUse = false
+    mr.Workers[workerAddr] = wkinfo
+  }
+
+  log.Printf("go to cope with map jobs")
+
+  var wkinfo *WorkerInfo
+
+  comLock := new(sync.Mutex)
+  workId := 0 // 记录当前分配的工作ID
+  comJob := 0 // 记录已经完成的工作数目
+  for {
+    if workId >= mr.nMap { // 如果已经分发了所有的工作则推出循环
+      log.Printf("send %d jobs to workers", workId)
+      break
+    }
+
+    wkinfo = nil
+    for _, wkinfo = range mr.Workers { // 获得一个没有执行工作的Worker
+      if wkinfo.inUse == false {
+        break
+      }
+    }
+
+    if wkinfo != nil && wkinfo.inUse == false { // 如果找到了一个没有执行工作的Worker
+      wkinfo.inUse = true
+      go mr.assignJob(wkinfo, Map, workId, comLock, &comJob) // 就给它分配一个工作
+
+      workId++ // 继续分配下一个工作
+    }
+  }
+
+  for {
+    if comJob >= mr.nMap { // 如果所有的工作都完成了，就推出循环，这个循环保证所有的Map任务完成
+      break
+    }
+
+    // 这个循环用于等待所有的工作 完成，可是不知道为什么，在不加下一行这个休眠的函数时，最后两个工作总是得不到执行
+    // assignJob函数获取了工作，但是没有执行。在下面加个time.Sleep()就行了，为什么呢？
+    time.Sleep(time.Duration(1) * time.Second)
+  }
+
+  log.Printf("complete all map jobs")
+
+  log.Printf("go to cope with reduce jobs")
+
+  // 下面reduce的流程基本一样，就不赘述了
+  workId = 0
+  comJob = 0
+  for {
+    if workId >= mr.nReduce {
+      log.Printf("send %d jobs to workers", workId)
+      break
+    }
+
+    for _, wkinfo = range mr.Workers {
+      if wkinfo.inUse == false {
+        break
+      }
+    }
+
+    if wkinfo != nil && wkinfo.inUse == false {
+      wkinfo.inUse = true
+      go mr.assignJob(wkinfo, Reduce, workId, comLock, &comJob)
+
+      workId++
+    }
+  }
+
+  for {
+    if(comJob >= mr.nReduce) {
+      break
+    }
+
+    time.Sleep(time.Duration(1) * time.Second)
+  }
+
+  log.Printf("complete all reduce jobs")
+
+  return mr.KillWorkers()
+}
+```
+
+### 4 测试
+
+GO的单元测试文件名以test.go结尾，比如，这里mapreduce文件夹下面就有个test_test.go，这就是用于测试的文件。当在mapreduce目录下执行go test时，就会执行这个文件中函数名以Test开始的函数。因此，执行go test时，会依次执行TestBasic、TestOneFailure、TestManyFailures。对于实验1的第二部分，只要通过TestBasic就行。
+
+对程序做以上修改，然后在mapreduce目录下执行go test > out，结果如图：
+
+![](https://github.com/luofengmacheng/distributed_system/blob/master/pic/mapreduce2.jpg)
+
+注意：这里没有直接输入go test，而是用了重定向，因为执行go test时，会在屏幕打印很多东西，而使用go test > out时，屏幕只会打印log.Printf()的内容，fmt.Printf()打印的内容会重定向到out文件中。因此，如果想只关注部分地方，可以用log.Printf()。比如，从这里可以看出，我将test_test.go中最后打印... Basic Passed的语句也变成log.Printf()。
