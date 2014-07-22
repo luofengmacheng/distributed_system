@@ -128,7 +128,7 @@ if ok == false {
 
 加了fmt.Printf()之后，就可以收到worker的注册。
 
-因此，我推测，对工作进行处理for循环阻碍了等待用户注册的goroutine中的for循环的执行。这跟实验1任务2中添加time.Sleep()的道理类似。
+因此，我推测，对工作进行处理for循环阻碍了等待用户注册的goroutine中的for循环的执行。这跟实验1任务2中添加time.Sleep()的道理类似。这涉及到goroutine的实现，一般的书籍都说，goroutine并不是真正的并行，而是并发，也就是说，同一时刻，只能有一个执行，于是，这里或许产生了饥饿现象才导致goroutine中的for循环没有接收worker的注册。
 
 ### 2.4 Many Failures测试
 
