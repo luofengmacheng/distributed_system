@@ -285,6 +285,6 @@ GO的单元测试文件名以test.go结尾，比如，这里mapreduce文件夹�
 
 对程序做以上修改，然后在mapreduce目录下执行go test > out，结果如图：
 
-![](https://github.com/luofengmacheng/distributed_system/blob/master/pic/mapreduce2.jpg)
+![](https://github.com/luofengmacheng/distributed_system/blob/master/pic/mapreduce2.png)
 
 注意：这里没有直接输入go test，而是用了重定向，因为执行go test时，会在屏幕打印很多东西，而使用go test > out时，屏幕只会打印log.Printf()的内容，fmt.Printf()打印的内容会重定向到out文件中。因此，如果想只关注部分地方，可以用log.Printf()。比如，从这里可以看出，我将test_test.go中最后打印... Basic Passed的语句也变成log.Printf()。
