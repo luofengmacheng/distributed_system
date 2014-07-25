@@ -78,4 +78,67 @@ hypervisor是实现了虚拟机的软件层次，这些虚拟机拥有和hypervi
 
 **指令流中断假设：**当到了指令流的一个特定的地方，这种机制可以调用hypervisor(也就是让hypervisor知道，指令执行到了一个特定的地方)。
 
-除了HP的PA-RISC上的恢复寄存器，也可以采用DEC Alpha的性能计数器(performance counters)，或者事件计数器。
+除了HP的PA-RISC上的恢复寄存器，也可以采用DEC Alpha的性能计数器(performance counters)，或者事件计数器。对象代码编辑(Object-code editing)给出了另一种方案保证主备hypervisors在一个虚拟机指令流的相同地方被调用。在这种方案中，内核和所有的用户进程的对象代码被编辑，以便hypervisor周期性地被调用。或者，当用编译器生成程序时，能够简单改变编译器的代码生成器来周期性地调用hypervisor。
+
+有了指令流中断假设，虚拟机的执行可以被分割为多个阶段(epochs)，主备虚拟机上的对应的epochs包含相同的指令序列。在一个时间段中，不会传递中断-中断被缓冲，只有在时间段边界才会传递。这种解决方案是为了使主备hypervisor通信，在一个时间段i结束时，备份hypervisor传递中断的拷贝，这些中断是主hypervisor在它的时间段i结束时传递的。
+
+现在，我们对保证主备虚拟机执行相同指令序列并接收相同中断的协议进行总结。为了简化陈述，我们假设，连接主备处理器的通道是FIFO形式的。我们还假设执行备份虚拟机的处理器只有当收到主hypervisor的最后一条消息之后才会检测主处理器故障。主hypervisor保存计数器ep，备份hypervisor保存计数器eb，这些计数器保存了当前主备虚拟机各自的阶段编号。
+
+协议包含一系列过程，我们在hypervisor中实现了这些过程。这些过程可能可以并发执行。我们用Tmep表示执行主虚拟机的处理器的虚拟的间隔计数器和时钟，用Tmeb表示备份虚拟机的相同寄存器。在每个时间阶段(epoch)，备份hypervisor接收Tmep，hypervisor就能够重新同步它的时钟，这样，主hypervisor会在每个epoch最后调度间隔计数器中断。
+
+首先，我们看看这种情况：运行主虚拟机的处理器还没有故障。
+
+P0：如果ep = E，并且主hypervisor执行一条环境指令：
+
+* 主hypervisor将[E，Val]发送给备份hypervisor，其中Val是执行环境指令产生的值。
+
+P1：如果ep = E，并且主hypervisor收到一个中断Int：
+
+* 主hypervisor将[E，Int]发送给备份hypervisor；
+* 主hypervisor缓冲Int，之后再传递
+
+P2：如果ep = E，并且主hypervisor的epoch结束了：
+
+* 主将[Tmep]发送给备份；
+* 主等待之前发送给备份的所有消息的确认；
+* 主缓冲任何基于Tmep的中断；
+* 主传递epoch E的所有缓冲的中断；
+* 主将[end，E]发送给备份；
+* ed := ep + 1;
+* 主开始epoch E+1
+
+P3：如果备份hypervisor收到备份虚拟机发送的中断Int，它会忽略Int。
+
+P4：如果备份hypervisor收到从主hypervisor发送的[E，Int]：
+
+* 备份hypervisor向主发送一个确认；
+* 备份缓冲Int，在epoch E结束时传递
+
+P5：如果eb = E，并且备份epoch结束：
+
+* 备份等待主的[Tmep]消息；
+* Tmeb := Tmep；
+* 备份等待主的[end，E+1]；
+* 备份缓冲基于Tmeb的中断；
+* 在epoch E结束时，备份传递所有缓冲的中断；
+* eb := eb + 1；
+* 备份开始epoch E+1
+
+P6：如果ep = E，并且备份hypervisor处理环境指令：
+
+* 返回值是主根据P0发送的值
+
+现在，考虑执行主虚拟机的处理器故障了。假设故障发生在启动epoch E+1之后，但是在向备份hypervisor发送[end，E+1](in P2)之前。备份hypervisor没有义务在epoch E+1的那个地方(主故障了)继续执行，因此，备份能够继续执行指令(并且忽略从备份处理器发送的中断)直到 epoch E+1结束。然而，在备份虚拟机到达epoch E结束之后，它没有从主hypervisor收到期望的[end，E+1]。故障检测通知会代替这个消息。最后，在epoch E+2开始时，备份会被提升为主，因此，在每个epoch阶段，只有一个主。
+
+P7：如果eb = E，并且备份的epoch结束时：
+
+* 备份等候检测主故障；
+* 备份缓冲基于Tmeb的中断；
+* 备份传递epoch E结束时缓冲的所有中断；
+* eb := eb + 1；
+* 备份开始阶段epoch E+1；
+* 备份被提升为主，开始epoch E+2
+
+理解从P0到P7完成什么，没有完成什么，是很重要的。P0到P7保证了备份虚拟机跟主虚拟机执行相同的指令序列。P0到P7还保证，如果主虚拟机故障了，备份虚拟机执行的指令会扩展到主虚拟机执行的指令序列。
+
+P0到P7不会保证从I/O设备的中断不丢失()。如果运行主虚拟机的处理器在成功延迟传递到主hypervisor的I/O中断之前故障了，那么，中断就会丢失。下一部分扩展协议来处理I/O中断丢失的情况和保证外界在响应故障后不会看到异常行为的更加普遍的情况。
