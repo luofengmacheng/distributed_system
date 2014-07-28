@@ -175,3 +175,5 @@ P8能够使确定的I/O指令重试。然而，考虑到环境，这种重试可
 为了测试基于hypervisor的容错方案的性能，我们搭建了一个原型系统。这里介绍hypervisor的实现和第2节中提到的协议。我们的原型系统包括两个用SCSI总线和以太网相连的HP 9000/720 PA-RISC处理器。我们选择这种处理器是因为，可以使用恢复寄存器控制epochs。用SCSI总线相连的磁盘是典型的I/O设备；远程终端可以连上以太网，可以控制和调试体系。如图1。
 
 ![](https://github.com/luofengmacheng/distributed_system/blob/master/pic/hypervisor1.png)
+
+图1：原型
