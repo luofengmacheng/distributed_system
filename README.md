@@ -6,6 +6,8 @@
 
 3 [实验1任务3：处理Worker故障](https://github.com/luofengmacheng/distributed_system/blob/master/mapreduce3.md)
 
+4 [实验2任务1：Viewservice](https://github.com/luofengmacheng/distributed_system/blob/master/viewservice1.md)
+
 ## 论文翻译
 
 1 [Hypervisor-based Fault-tolerance](https://github.com/luofengmacheng/distributed_system/blob/master/hypervisor.md)
