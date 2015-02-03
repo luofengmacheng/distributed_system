@@ -11,3 +11,5 @@
 ## 论文翻译
 
 1 [Hypervisor-based Fault-tolerance](https://github.com/luofengmacheng/distributed_system/blob/master/hypervisor.md)
+
+2 [Paxos made simple](https://github.com/luofengmacheng/distributed_system/blob/master/paxos_simple.md)
